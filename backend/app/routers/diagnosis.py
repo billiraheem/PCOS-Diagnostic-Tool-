@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-
 from app.database import get_db
 from app.models.user import User
 from app.models.patient import Patient, Diagnosis
@@ -11,10 +10,12 @@ from app.schemas.diagnosis import (
 )
 from app.routers.auth import get_current_user
 from app.services.ml_service import ml_service
-
+from fastapi.responses import StreamingResponse
+from io import BytesIO
+from app.services.pdf_service import pdf_service
+from app.services.ml_service import ml_service
 
 router = APIRouter(prefix="/api/diagnosis", tags=["Diagnosis"])
-
 
 @router.post("/patient", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
 def create_patient(
@@ -24,7 +25,10 @@ def create_patient(
 ):
     new_patient = Patient(
         name=patient_data.name,
-        age=patient_data.age,
+        date_of_birth=patient_data.date_of_birth,
+        phone=patient_data.phone,
+        email=patient_data.email,
+        address=patient_data.address,
         clinician_id=current_user.id
     )
     
@@ -62,8 +66,15 @@ def stage1_screening(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
+    # Determine age to use: input override or patient's current age
+    actual_age = input_data.age if input_data.age else patient.age
+    
+    if not actual_age:
+        raise HTTPException(status_code=400, detail="Unable to determine patient age")
+    
     # Prepare input for ML model
     ml_input = input_data.model_dump()
+    ml_input['age'] = actual_age  # Ensure correct age is used
     
     # Get prediction with SHAP explanation
     result = ml_service.predict_stage1(ml_input)
@@ -74,6 +85,7 @@ def stage1_screening(
     # Create diagnosis record
     diagnosis = Diagnosis(
         patient_id=patient_id,
+         age_at_diagnosis=actual_age,  # Store the age used
         weight=input_data.weight,
         height=input_data.height,
         bmi=bmi,
@@ -282,3 +294,101 @@ def get_diagnosis_detail(
         "created_at": diagnosis.created_at,
         "updated_at": diagnosis.updated_at,
     }
+
+# Dashboard summary - optimized endpoint for patient list
+@router.get("/dashboard")
+def get_dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    patients = db.query(Patient).filter(
+        Patient.clinician_id == current_user.id
+    ).all()
+    
+    dashboard_data = []
+    
+    for patient in patients:
+        # Get the latest diagnosis for this patient
+        latest_diagnosis = db.query(Diagnosis).filter(
+            Diagnosis.patient_id == patient.id
+        ).order_by(Diagnosis.created_at.desc()).first()
+        
+        patient_data = {
+            "id": patient.id,
+            "name": patient.name,
+            "age": patient.age,
+            "created_at": patient.created_at,
+            "has_diagnosis": latest_diagnosis is not None,
+        }
+        
+        if latest_diagnosis:
+            patient_data.update({
+                "latest_diagnosis_id": latest_diagnosis.id,
+                "probability": latest_diagnosis.stage2_probability if latest_diagnosis.is_confirmed else latest_diagnosis.stage1_probability,
+                "risk_level": latest_diagnosis.risk_level,
+                "is_confirmed": latest_diagnosis.is_confirmed,
+                "diagnosis_date": latest_diagnosis.updated_at,
+            })
+        else:
+            patient_data.update({
+                "latest_diagnosis_id": None,
+                "probability": None,
+                "risk_level": None,
+                "is_confirmed": False,
+                "diagnosis_date": None,
+            })
+        
+        dashboard_data.append(patient_data)
+    
+    return {
+        "total_patients": len(patients),
+        "patients": dashboard_data
+    }
+
+
+# PDF Report Download
+@router.get("/{diagnosis_id}/report")
+def download_report(
+    diagnosis_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Get the diagnosis with patient info
+    diagnosis = db.query(Diagnosis).join(Patient).filter(
+        Diagnosis.id == diagnosis_id,
+        Patient.clinician_id == current_user.id
+    ).first()
+    
+    if not diagnosis:
+        raise HTTPException(status_code=404, detail="Diagnosis not found")
+    
+    probability = diagnosis.stage2_probability if diagnosis.is_confirmed else diagnosis.stage1_probability
+    risk_level = diagnosis.risk_level   
+
+    # Generate recommendation on-the-fly
+    recommendation = ml_service._get_detailed_recommendation(risk_level, diagnosis.is_confirmed)
+
+    # Prepare data for PDF generation
+    diagnosis_data = {
+        "patient_name": diagnosis.patient.name,
+        "patient_age": diagnosis.patient.age,
+        "probability": probability,
+        "risk_level": risk_level,
+        "is_confirmed": diagnosis.is_confirmed,
+        "shap_chart_data": diagnosis.shap_values or [],
+        "recommendation": recommendation,
+        "created_at": diagnosis.created_at,
+    }
+    
+    # Generate PDF
+    pdf_bytes = pdf_service.generate_report(diagnosis_data)
+    
+    # Create filename
+    filename = f"PCOS_Report_{diagnosis.patient.name.replace(' ', '_')}_{diagnosis.created_at.strftime('%Y%m%d')}.pdf"
+    
+    # Return as downloadable file
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

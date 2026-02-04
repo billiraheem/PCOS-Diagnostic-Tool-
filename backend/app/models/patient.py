@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, Date
 from sqlalchemy.orm import relationship
-from datetime import datetime
-
+from datetime import datetime, date
+from sqlalchemy.ext.hybrid import hybrid_property
 from app.database import Base
 
 
@@ -11,8 +11,27 @@ class Patient(Base):
     id = Column(Integer, primary_key=True, index=True)
     clinician_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String(255), nullable=False)
-    age = Column(Integer)
+    date_of_birth = Column(Date, nullable=False)
+    
+    # Additional patient details
+    phone = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    address = Column(String(500), nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Auto-calculate age from date_of_birth
+    @hybrid_property
+    def age(self) -> int:
+        if self.date_of_birth:
+            today = date.today()
+            age = today.year - self.date_of_birth.year
+            # Adjust if birthday hasn't occurred yet this year
+            if (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day):
+                age -= 1
+            return age
+        return None
     
     # Relationships
     clinician = relationship("User", back_populates="patients")
@@ -24,6 +43,8 @@ class Diagnosis(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    # Age at time of diagnosis (for historical tracking)
+    age_at_diagnosis = Column(Integer, nullable=False)
     
     # Stage 1: Non-invasive data
     weight = Column(Float)

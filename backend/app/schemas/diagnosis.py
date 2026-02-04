@@ -1,17 +1,24 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 
 
 class PatientCreate(BaseModel):
-    name: str
-    age: int
+    name: str = Field(..., min_length=2, max_length=255)
+    date_of_birth: date = Field(..., description="Patient's date of birth (YYYY-MM-DD)")
+    phone: Optional[str] = Field(None, max_length=20)
+    email: Optional[EmailStr] = None
+    address: Optional[str] = Field(None, max_length=500)
 
 
 class PatientResponse(BaseModel):
     id: int
     name: str
-    age: int
+    date_of_birth: date
+    age: int  # Calculated from DOB
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
     created_at: datetime
     
     class Config:
@@ -21,11 +28,12 @@ class PatientResponse(BaseModel):
 class Stage1Input(BaseModel):
     # Stage 1: Non-invasive screening input.
     # Required fields
-    age: int = Field(..., ge=15, le=50, description="Age in years")
     weight: float = Field(..., ge=30, le=200, description="Weight in kg")
     height: float = Field(..., ge=100, le=200, description="Height in cm")
     cycle_regularity: int = Field(..., description="2=Regular, 4=Irregular")
     cycle_length: int = Field(..., ge=0, le=60, description="Cycle length in days")
+    # Age is optional - uses patient's current age if not provided
+    age: Optional[int] = Field(None, ge=15, le=50, description="Age override (optional, uses patient age if not provided)")
     
     # Binary symptoms (0 or 1)
     weight_gain: int = Field(..., ge=0, le=1)
@@ -36,6 +44,11 @@ class Stage1Input(BaseModel):
     fast_food: int = Field(..., ge=0, le=1)
     regular_exercise: int = Field(..., ge=0, le=1)
 
+    # Optional additional fields (will use training means if not provided)
+    marriage_years: Optional[float] = Field(None, ge=0, description="Years married")
+    pregnant: Optional[int] = Field(None, ge=0, le=1, description="Currently pregnant 0/1")
+    num_abortions: Optional[int] = Field(None, ge=0, description="Number of abortions")
+
 
 class Stage2Input(BaseModel):
     # Stage 2: Clinical data input (updates existing diagnosis).
@@ -44,6 +57,8 @@ class Stage2Input(BaseModel):
     lh: float = Field(..., ge=0, description="LH level mIU/mL")
     amh: float = Field(..., ge=0, description="AMH level ng/mL")
     tsh: Optional[float] = Field(None, ge=0, description="TSH level mIU/L")
+    prl: Optional[float] = Field(None, ge=0, description="Prolactin ng/mL")
+    prg: Optional[float] = Field(None, ge=0, description="Progesterone ng/mL")
     
     # Ultrasound
     follicle_l: int = Field(..., ge=0, le=50, description="Follicle count left ovary")
@@ -51,6 +66,18 @@ class Stage2Input(BaseModel):
     avg_f_size_l: float = Field(..., ge=0, description="Avg follicle size left mm")
     avg_f_size_r: float = Field(..., ge=0, description="Avg follicle size right mm")
     endometrium: Optional[float] = Field(None, ge=0, description="Endometrium thickness mm")
+
+    # Additional Labs - Optional
+    vit_d3: Optional[float] = Field(None, ge=0, description="Vitamin D3 ng/mL")
+    hb: Optional[float] = Field(None, ge=0, description="Hemoglobin g/dL")
+    rbs: Optional[float] = Field(None, ge=0, description="Random Blood Sugar mg/dL")
+    blood_group: Optional[int] = Field(None, description="Blood group encoded")
+    pulse_rate: Optional[float] = Field(None, ge=40, le=200, description="Pulse rate bpm")
+    respiratory_rate: Optional[float] = Field(None, ge=10, le=40, description="Respiratory rate breaths/min")
+    hip: Optional[float] = Field(None, ge=20, le=60, description="Hip circumference inches")
+    waist: Optional[float] = Field(None, ge=20, le=60, description="Waist circumference inches")
+    bp_systolic: Optional[float] = Field(None, ge=80, le=200, description="Systolic BP mmHg")
+    bp_diastolic: Optional[float] = Field(None, ge=40, le=130, description="Diastolic BP mmHg")
 
 
 class ShapChartData(BaseModel):
