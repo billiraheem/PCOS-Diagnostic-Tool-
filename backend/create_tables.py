@@ -2,9 +2,12 @@ from app.database import engine, Base
 from app.models.user import User
 from app.models.patient import Patient, Diagnosis
 
-print("Creating database tables...")
+print("Resetting database tables...")
+# Droping all tables to ensure schema updates are applied
+Base.metadata.drop_all(bind=engine)
+print("  - Dropped existing tables")
 
-# This creates all tables defined in our models
+# Creating all tables defined in our models
 Base.metadata.create_all(bind=engine)
 
 print("All tables created successfully!")
