@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routers.auth import router as auth_router
 from app.routers.diagnosis import router as diagnosis_router
+from app.routers.admin import router as admin_router
 
 
 # Create FastAPI app
@@ -25,6 +26,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router)
 app.include_router(diagnosis_router)
+app.include_router(admin_router)
 
 @app.get("/")
 async def root():

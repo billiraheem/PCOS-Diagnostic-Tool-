@@ -1,0 +1,37 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: [
+      "valentine",
+      "dark",
+      "cupcake",
+      "pastel",
+      "wireframe",
+      "autumn",
+      "forest",
+      "aqua",
+      "lofi",
+      "fantasy",
+      "dracula",
+      "cmyk",
+      "lemonade",
+      "night",
+      "coffee",
+      "winter",
+      "dim",
+      "nord",
+      "sunset",
+    ],
+  },
+};
+export default config;

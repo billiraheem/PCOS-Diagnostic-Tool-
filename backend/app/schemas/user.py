@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
+    role: Optional[str] = "clinician"
 
 
 class UserLogin(BaseModel):
@@ -19,6 +20,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str]
     is_active: bool
+    role: str
     created_at: datetime
     
     class Config:

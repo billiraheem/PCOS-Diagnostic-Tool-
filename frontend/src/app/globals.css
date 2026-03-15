@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Override Valentine theme's heavy border-radius */
+:root {
+  --rounded-btn: 0.5rem;
+  --rounded-box: 0.75rem;
+}
+.input, .select {
+  border-radius: 0.375rem !important;
+}
+.card {
+  border-radius: 0.75rem !important;
+}

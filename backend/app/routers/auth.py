@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, Token
+from app.schemas.user import UserCreate, UserLogin,UserResponse, Token
 from app.services.auth_service import auth_service
 from app.config import settings
 
@@ -36,6 +36,13 @@ def get_current_user(
     
     return user
 
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -51,7 +58,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         email=user_data.email,
         hashed_password=auth_service.hash_password(user_data.password),
-        full_name=user_data.full_name
+        full_name=user_data.full_name,
+        role=user_data.role
     )
     
     db.add(new_user)
@@ -77,12 +85,31 @@ def login(
     
     # Create access token with user email as subject
     access_token = auth_service.create_access_token(
-        data={"sub": user.email},
+        data={"sub": user.email, "role": user.role},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
 
+@router.post("/login/json", response_model=Token)
+def login_json(
+    login_data: UserLogin,
+    db: Session = Depends(get_db)
+):
+    user = auth_service.authenticate_user(db, login_data.email, login_data.password)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+    
+    access_token = auth_service.create_access_token(
+        data={"sub": user.email, "role": user.role},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
