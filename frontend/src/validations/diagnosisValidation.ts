@@ -11,10 +11,11 @@ export const stage1Schema = Yup.object().shape({
     .max(250, "Height seems too high")
     .required("Height is required"),
   cycle_regularity: Yup.number()
-    .oneOf([0, 1], "Please select cycle regularity")
+    .oneOf([2, 4], "Please select cycle regularity")
     .required("Cycle regularity is required"),
   cycle_length: Yup.number()
     .min(0, "Cycle length must be positive")
+    .max(60, "Cycle length must be 60 or less")
     .required("Cycle length is required"),
   weight_gain: Yup.number()
     .oneOf([0, 1], "Please select yes or no")

@@ -3,8 +3,7 @@ export interface Stage1Payload {
   age?: number;
   weight: number;
   height: number;
-  bmi: number;
-  cycle_regularity: number; // 0 or 1
+  cycle_regularity: number; // 2 or 4
   cycle_length: number;
   weight_gain: number; // 0 or 1
   hair_growth: number; // 0 or 1
@@ -12,7 +11,7 @@ export interface Stage1Payload {
   hair_loss: number; // 0 or 1
   pimples: number; // 0 or 1
   fast_food: number; // 0 or 1
-  reg_exercise: number; // 0 or 1
+  regular_exercise: number; // 0 or 1
 }
 
 export interface Stage2Payload {
@@ -20,8 +19,8 @@ export interface Stage2Payload {
   lh: number;
   amh: number;
   tsh?: number;
-  follicle_no_l: number;
-  follicle_no_r: number;
+  follicle_l: number;
+  follicle_r: number;
   avg_f_size_l: number;
   avg_f_size_r: number;
   endometrium?: number;

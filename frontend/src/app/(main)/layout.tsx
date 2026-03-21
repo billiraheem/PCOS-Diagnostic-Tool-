@@ -32,7 +32,7 @@ export default function MainLayout({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar - hidden on mobile */}
-      <div className="hidden lg:block">
+      <div className="hidden lg:block sticky top-0 h-screen">
         <Sidebar />
       </div>
 

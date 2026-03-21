@@ -43,9 +43,24 @@ export default api;
 
 export const getErrorMessage = (error: unknown): string => {
   if (error instanceof AxiosError) {
-    return (
-      error.response?.data?.detail || error.message || "Something went wrong"
-    );
+    const detail = error.response?.data?.detail;
+
+    // Pydantic validation errors return detail as an array of objects
+    if (Array.isArray(detail)) {
+      return detail
+        .map((err: { loc?: string[]; msg?: string }) => {
+          const field = err.loc?.slice(-1)[0] || "field";
+          return `${field}: ${err.msg}`;
+        })
+        .join(", ");
+    }
+
+    // Simple string error
+    if (typeof detail === "string") {
+      return detail;
+    }
+
+    return error.message || "Something went wrong";
   }
   return "An unexpected error occurred";
 };
